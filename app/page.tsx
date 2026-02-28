@@ -2,12 +2,33 @@
 
 import { useMemo, useState } from "react";
 
+async function compressImage(file: File): Promise<Blob> {
+  const img = document.createElement("img");
+  img.src = URL.createObjectURL(file);
+  await new Promise((res) => (img.onload = res));
+
+  const canvas = document.createElement("canvas");
+
+  const maxWidth = 1200; // resize large stories down
+  const scale = Math.min(1, maxWidth / img.width);
+
+  canvas.width = img.width * scale;
+  canvas.height = img.height * scale;
+
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  return new Promise((res) =>
+    canvas.toBlob((blob) => res(blob!), "image/jpeg", 0.8)
+  );
+}
+
 export default function Home() {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState("");
 
   const helper = useMemo(() => {
-    if (!files.length) return "Pick up to 12 photos for the best one-page sheet.";
+    if (!files.length) return "Pick up to 12 photos.";
     if (files.length < 12) return `Add ${12 - files.length} more (or generate anyway).`;
     if (files.length === 12) return "Perfect. Generate the PDF.";
     return `You selected ${files.length}. We’ll use the first 12.`;
@@ -15,16 +36,26 @@ export default function Home() {
 
   async function generate() {
     if (!files.length) return;
-    setStatus("Generating PDF…");
+    setStatus("Compressing images…");
 
     const form = new FormData();
-    files.slice(0, 12).forEach((f) => form.append("images", f));
 
-    const res = await fetch("/api/generate", { method: "POST", body: form });
+    for (const file of files.slice(0, 12)) {
+      const compressed = await compressImage(file);
+      form.append("images", compressed);
+    }
+
+    setStatus("Generating PDF…");
+
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      body: form,
+    });
 
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setStatus(data?.error ?? "Something went wrong.");
+      const text = await res.text();
+      console.log(text);
+      setStatus("Upload too large or server error.");
       return;
     }
 
@@ -43,51 +74,27 @@ export default function Home() {
   }
 
   return (
-    <main
-      style={{
-        maxWidth: 720,
-        margin: "60px auto",
-        padding: 20,
-        fontFamily: "system-ui",
-      }}
-    >
-      <h1 style={{ marginBottom: 6 }}>StorySheet</h1>
-      <p style={{ marginTop: 0, opacity: 0.8 }}>
-        Upload photos → download a one-page printable PDF (12-up, no cropping).
-      </p>
+    <main style={{ maxWidth: 720, margin: "60px auto", padding: 20 }}>
+      <h1>StorySheet</h1>
+      <p>Upload photos → download a one-page printable PDF.</p>
 
-      <div style={{ padding: 16, border: "1px solid #ddd", borderRadius: 14 }}>
-        <input
-          type="file"
-          accept="image/jpeg,image/png"
-          multiple
-          onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-        />
+      <input
+        type="file"
+        accept="image/jpeg,image/png"
+        multiple
+        onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+      />
 
-        <p style={{ margin: "10px 0 0", opacity: 0.8 }}>{helper}</p>
+      <br /><br />
 
-        <div style={{ marginTop: 12 }}>
-          <button
-            onClick={generate}
-            disabled={!files.length}
-            style={{
-              padding: "10px 14px",
-              borderRadius: 10,
-              border: "1px solid #111",
-              background: files.length ? "#111" : "#888",
-              color: "#fff",
-              cursor: files.length ? "pointer" : "not-allowed",
-            }}
-          >
-            Generate PDF
-          </button>
-        </div>
+      <button onClick={generate} disabled={!files.length}>
+        Generate PDF
+      </button>
 
-        {status && <p style={{ marginTop: 12 }}>{status}</p>}
-      </div>
+      <p>{status}</p>
 
-      <p style={{ marginTop: 16, fontSize: 13, opacity: 0.7 }}>
-        Privacy: images are processed to create the PDF and aren’t stored.
+      <p style={{ fontSize: 13, opacity: 0.7 }}>
+        Images are compressed in-browser and not stored.
       </p>
     </main>
   );
