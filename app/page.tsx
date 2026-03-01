@@ -25,7 +25,7 @@ export default function Home() {
   const [files, setFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<Mode>("sheet12");
 
-  // Only for zine:
+  // Optional extra text page for zine printing
   const [includeBackText, setIncludeBackText] = useState(false);
   const [backText, setBackText] = useState("");
 
@@ -90,9 +90,7 @@ export default function Home() {
   return (
     <main style={{ maxWidth: 760, margin: "60px auto", padding: 20, fontFamily: "system-ui" }}>
       <h1 style={{ marginBottom: 6 }}>StorySheet</h1>
-      <p style={{ marginTop: 0, opacity: 0.85 }}>
-        Single Page (12-up) or Mini-Zine (cut & fold).
-      </p>
+      <p style={{ marginTop: 0, opacity: 0.85 }}>Single Page (12-up) or Mini-Zine (cut & fold).</p>
 
       <div style={{ padding: 16, border: "1px solid #ddd", borderRadius: 14 }}>
         <div style={{ marginBottom: 16 }}>
@@ -145,7 +143,7 @@ export default function Home() {
 
         {mode === "zine8" && (
           <div style={{ marginBottom: 16 }}>
-            <strong>Back of Zine (optional)</strong>
+            <strong>Optional extra text page (PDF page 2)</strong>
             <div style={{ marginTop: 8 }}>
               <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <input
@@ -153,7 +151,7 @@ export default function Home() {
                   checked={includeBackText}
                   onChange={(e) => setIncludeBackText(e.target.checked)}
                 />
-                Add a back text page (auto-fills the page)
+                Add a letter page
               </label>
 
               {includeBackText && (
@@ -162,7 +160,7 @@ export default function Home() {
                     value={backText}
                     onChange={(e) => setBackText(e.target.value)}
                     rows={9}
-                    placeholder="Write the back-page text here…"
+                    placeholder="Write the letter here…"
                     style={{
                       width: "100%",
                       padding: 10,
@@ -170,9 +168,6 @@ export default function Home() {
                       border: "1px solid #ddd",
                     }}
                   />
-                  <p style={{ margin: "8px 0 0", opacity: 0.7, fontSize: 13 }}>
-                    Print <b>double-sided</b> to put this on the back of the zine sheet.
-                  </p>
                 </div>
               )}
             </div>

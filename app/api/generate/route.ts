@@ -27,15 +27,16 @@ function wrapText(font: any, text: string, fontSize: number, maxWidth: number) {
 }
 
 function pickFontSizeToFillPage(font: any, text: string, maxWidth: number, maxHeight: number) {
-  // Binary search the largest font size that fits height + width constraints.
   let lo = 8;
-  let hi = 72;
+  let hi = 140;
   let best = 12;
+
+  const safeText = (text || "").trim() || " ";
 
   while (lo <= hi) {
     const mid = Math.floor((lo + hi) / 2);
-    const lineHeight = Math.round(mid * 1.25);
-    const lines = wrapText(font, text || " ", mid, maxWidth);
+    const lineHeight = Math.round(mid * 1.22);
+    const lines = wrapText(font, safeText, mid, maxWidth);
     const height = lines.length * lineHeight;
 
     if (height <= maxHeight) {
@@ -46,9 +47,88 @@ function pickFontSizeToFillPage(font: any, text: string, maxWidth: number, maxHe
     }
   }
 
-  const lineHeight = Math.round(best * 1.25);
-  const lines = wrapText(font, text || " ", best, maxWidth);
+  const lineHeight = Math.round(best * 1.22);
+  const lines = wrapText(font, safeText, best, maxWidth);
   return { fontSize: best, lineHeight, lines };
+}
+
+/**
+ * Draws a text label inside a panel, with a white background strip.
+ * If rotate180 is true, rotates the label 180° (so it reads correctly after folding).
+ */
+function drawPanelLabel(opts: {
+  page: any;
+  text: string;
+  font: any;
+  fontSize: number;
+  panelX: number;
+  panelY: number;
+  panelW: number;
+  panelH: number;
+  anchor: "top" | "bottom";
+  rotate180: boolean;
+}) {
+  const { page, text, font, fontSize, panelX, panelY, panelW, panelH, anchor, rotate180 } = opts;
+
+  const padX = 6;
+  const padY = 3;
+
+  const textW = font.widthOfTextAtSize(text, fontSize);
+  const textH = fontSize;
+
+  // Center horizontally in the panel
+  const tx = panelX + panelW / 2 - textW / 2;
+
+  // Position vertically inside the panel
+  // "top" means around the first quarter down from the top (your request)
+  // "bottom" means near the bottom
+  const ty =
+    anchor === "top"
+      ? panelY + panelH * 0.72 // roughly "first quarter of vertical" (high on the panel)
+      : panelY + 8;
+
+  // Background strip
+  const rectW = textW + padX * 2;
+  const rectH = textH + padY * 2;
+  const rx = tx - padX;
+  const ry = ty - padY;
+
+  if (rotate180) {
+    // Rotate around lower-left corner compensation: draw at (x+w, y+h) with rotate 180
+    page.drawRectangle({
+      x: rx + rectW,
+      y: ry + rectH,
+      width: rectW,
+      height: rectH,
+      rotate: degrees(180),
+      color: rgb(1, 1, 1),
+    });
+
+    page.drawText(text, {
+      x: tx + textW,
+      y: ty + textH,
+      size: fontSize,
+      font,
+      color: rgb(0, 0, 0),
+      rotate: degrees(180),
+    });
+  } else {
+    page.drawRectangle({
+      x: rx,
+      y: ry,
+      width: rectW,
+      height: rectH,
+      color: rgb(1, 1, 1),
+    });
+
+    page.drawText(text, {
+      x: tx,
+      y: ty,
+      size: fontSize,
+      font,
+      color: rgb(0, 0, 0),
+    });
+  }
 }
 
 export async function POST(req: Request) {
@@ -68,42 +148,38 @@ export async function POST(req: Request) {
     }
 
     const pdf = await PDFDocument.create();
-
     const isZine = mode === "zine8";
 
     // Page size:
     // - Sheet12: Portrait Letter
-    // - Zine8:  Landscape Letter (this matches the classic cut+fold template)
-    const PAGE_W = isZine ? 792 : 612; // 11" or 8.5"
-    const PAGE_H = isZine ? 612 : 792; // 8.5" or 11"
+    // - Zine8: Landscape Letter (classic cut+fold template)
+    const PAGE_W = isZine ? 792 : 612;
+    const PAGE_H = isZine ? 612 : 792;
 
-    // ---- Page 1 (front) ----
+    // ---- Page 1 (front sheet) ----
     const page1 = pdf.addPage([PAGE_W, PAGE_H]);
 
-    // Layout
     const COLS = isZine ? 4 : 3;
     const ROWS = isZine ? 2 : 4;
     const maxImages = isZine ? 8 : 12;
 
-    const MARGIN = isZine ? 28 : 28;
-    const GUTTER = isZine ? 10 : 10;
+    const MARGIN_TOP = 28;
+    const MARGIN_OTHER = 28;
+    const GUTTER = 10;
 
-    const cellW = (PAGE_W - MARGIN * 2 - GUTTER * (COLS - 1)) / COLS;
-    const cellH = (PAGE_H - MARGIN * 2 - GUTTER * (ROWS - 1)) / ROWS;
+    const cellW = (PAGE_W - MARGIN_OTHER * 2 - GUTTER * (COLS - 1)) / COLS;
+    const cellH = (PAGE_H - MARGIN_TOP - MARGIN_OTHER - GUTTER * (ROWS - 1)) / ROWS;
 
-    // Take first N images
     const selected = files.slice(0, maxImages);
 
-    // For classic mini-zine imposition (cut in middle):
+    // Fonts for panel overlays (zine only)
+    const coverFont = await pdf.embedFont(StandardFonts.HelveticaBold);
+    const footerFont = await pdf.embedFont(StandardFonts.HelveticaOblique);
+
+    // Classic mini-zine imposition:
     // Top row (upside down): 8,1,2,3
-    // Bottom row (right side up): 7,6,5,4
-    // We'll map image indices -> panel slot order.
-    //
-    // image i (0-based) is "page i+1" content.
-    // We place it into the slot where it belongs.
+    // Bottom row: 7,6,5,4
     const zineSlotForPage = (pageNum: number) => {
-      // returns slot index 0..7 in reading order left-to-right, top row then bottom row
-      // slots: 0 1 2 3 (top), 4 5 6 7 (bottom)
       const map: Record<number, number> = {
         8: 0,
         1: 1,
@@ -119,60 +195,39 @@ export async function POST(req: Request) {
 
     for (let i = 0; i < selected.length; i++) {
       const f = selected[i];
-
-      // Expect jpg/png (client compression sends jpeg)
       if (f.type !== "image/jpeg" && f.type !== "image/png") continue;
 
       const bytes = new Uint8Array(await f.arrayBuffer());
       const embedded =
         f.type === "image/png" ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
 
-      // Determine which cell this image goes into
-      let cellIndex = i; // default sequential for sheet12
+      const pageNum = i + 1;
 
-      if (isZine) {
-        const pageNum = i + 1; // 1..8
-        cellIndex = zineSlotForPage(pageNum); // 0..7
-      }
+      // Determine which panel slot this page goes into
+      let cellIndex = i;
+      if (isZine) cellIndex = zineSlotForPage(pageNum);
 
       const col = cellIndex % COLS;
       const row = Math.floor(cellIndex / COLS);
 
-      const x = MARGIN + col * (cellW + GUTTER);
-      const yTop = PAGE_H - MARGIN - row * (cellH + GUTTER);
-      const y = yTop - cellH;
+      const panelX = MARGIN_OTHER + col * (cellW + GUTTER);
+      const yTop = PAGE_H - MARGIN_TOP - row * (cellH + GUTTER);
+      const panelY = yTop - cellH;
 
-      // Fit image to cell, no cropping
+      // Fit image to panel, no cropping
       const dims = embedded.scale(1);
       const scale = Math.min(cellW / dims.width, cellH / dims.height);
 
       const drawW = dims.width * scale;
       const drawH = dims.height * scale;
 
-      // Center in the cell
-      const dx = x + (cellW - drawW) / 2;
-      const dy = y + (cellH - drawH) / 2;
+      const dx = panelX + (cellW - drawW) / 2;
+      const dy = panelY + (cellH - drawH) / 2;
 
-      if (isZine && row === 0) {
-        // Top row should be upside down in the classic template.
-        // Rotate 180 degrees around the center of the drawn image.
-        const cx = dx + drawW / 2;
-        const cy = dy + drawH / 2;
+      const topRowRotated = isZine && row === 0;
 
-        page1.drawImage(embedded, {
-          x: dx,
-          y: dy,
-          width: drawW,
-          height: drawH,
-          rotate: degrees(180),
-          // pdf-lib rotates around origin; to rotate around center, we shift using "translate" via x/y math.
-          // Luckily, pdf-lib applies rotation about (x, y) origin; this 180° works visually if we set x/y
-          // as the opposite corner:
-          // We’ll instead draw using center rotation trick by shifting origin:
-        });
-
-        // The above rotate in pdf-lib rotates around the lower-left corner; for 180°, we can compensate:
-        // Redraw correctly compensated:
+      // Draw image (rotate top row)
+      if (topRowRotated) {
         page1.drawImage(embedded, {
           x: dx + drawW,
           y: dy + drawH,
@@ -184,25 +239,44 @@ export async function POST(req: Request) {
         page1.drawImage(embedded, { x: dx, y: dy, width: drawW, height: drawH });
       }
 
-      // Optional subtle frames for zine vibe
-      if (isZine) {
-        page1.drawRectangle({
-          x,
-          y,
-          width: cellW,
-          height: cellH,
-          borderWidth: 0.5,
-          borderColor: rgb(0, 0, 0),
+      // ---- Put text on the MINI-PAGES (page 1 and page 8 of the zine) ----
+      if (isZine && pageNum === 1) {
+        drawPanelLabel({
+          page: page1,
+          text: "Close Friends Only",
+          font: coverFont,
+          fontSize: 10,
+          panelX,
+          panelY,
+          panelW: cellW,
+          panelH: cellH,
+          anchor: "top",
+          rotate180: topRowRotated, // rotate if panel is in rotated row
+        });
+      }
+
+      if (isZine && pageNum === 8) {
+        drawPanelLabel({
+          page: page1,
+          text: "Open the zine to read the letter.",
+          font: footerFont,
+          fontSize: 7,
+          panelX,
+          panelY,
+          panelW: cellW,
+          panelH: cellH,
+          anchor: "bottom",
+          rotate180: topRowRotated, // rotate if panel is in rotated row
         });
       }
     }
 
-    // ---- Page 2 (back text) — only for Zine ----
+    // ---- Optional Page 2 (back letter page) — only for Zine ----
     if (isZine && includeBackText) {
       const page2 = pdf.addPage([PAGE_W, PAGE_H]);
       const font = await pdf.embedFont(StandardFonts.Helvetica);
 
-      const margin = 48;
+      const margin = 32;
       const maxWidth = PAGE_W - margin * 2;
       const maxHeight = PAGE_H - margin * 2;
 
@@ -213,18 +287,11 @@ export async function POST(req: Request) {
         maxHeight
       );
 
-      // Center vertically so it feels “designed”
       const textBlockHeight = lines.length * lineHeight;
       let y = margin + (maxHeight - textBlockHeight) / 2 + textBlockHeight - fontSize;
 
       for (const line of lines) {
-        page2.drawText(line, {
-          x: margin,
-          y,
-          size: fontSize,
-          font,
-          color: rgb(0, 0, 0),
-        });
+        page2.drawText(line, { x: margin, y, size: fontSize, font, color: rgb(0, 0, 0) });
         y -= lineHeight;
       }
     }
