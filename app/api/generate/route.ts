@@ -15,9 +15,8 @@ function wrapText(font: any, text: string, fontSize: number, maxWidth: number) {
   for (const w of words) {
     const candidate = line ? `${line} ${w}` : w;
     const width = font.widthOfTextAtSize(candidate, fontSize);
-    if (width <= maxWidth) {
-      line = candidate;
-    } else {
+    if (width <= maxWidth) line = candidate;
+    else {
       if (line) lines.push(line);
       line = w;
     }
@@ -27,17 +26,22 @@ function wrapText(font: any, text: string, fontSize: number, maxWidth: number) {
 }
 
 function pickFontSizeToFillPage(font: any, text: string, maxWidth: number, maxHeight: number) {
-  let lo = 8;
-  let hi = 140;
+  const safeText = (text || "").trim() || " ";
+
+  let lo = 6;
+  let hi = 160;
   let best = 12;
 
-  const safeText = (text || "").trim() || " ";
+  const measure = (size: number) => {
+    const leading = size * 1.25; // a bit more generous so we never clip descenders
+    const lines = wrapText(font, safeText, size, maxWidth);
+    const height = lines.length * leading;
+    return { lines, height, leading };
+  };
 
   while (lo <= hi) {
     const mid = Math.floor((lo + hi) / 2);
-    const lineHeight = Math.round(mid * 1.22);
-    const lines = wrapText(font, safeText, mid, maxWidth);
-    const height = lines.length * lineHeight;
+    const { height } = measure(mid);
 
     if (height <= maxHeight) {
       best = mid;
@@ -47,14 +51,15 @@ function pickFontSizeToFillPage(font: any, text: string, maxWidth: number, maxHe
     }
   }
 
-  const lineHeight = Math.round(best * 1.22);
-  const lines = wrapText(font, safeText, best, maxWidth);
-  return { fontSize: best, lineHeight, lines };
+  const { lines, leading } = measure(best);
+  return { fontSize: best, leading, lines };
 }
 
 /**
- * Draws a text label inside a panel, with a white background strip.
- * If rotate180 is true, rotates the label 180° (so it reads correctly after folding).
+ * Draw a label inside a panel with a white strip behind it.
+ * If panelIsRotated is true (top row), we:
+ *  - mirror the placement inside the panel (so "top" remains top after 180°)
+ *  - rotate the label 180° to match the panel rotation
  */
 function drawPanelLabel(opts: {
   page: any;
@@ -66,9 +71,10 @@ function drawPanelLabel(opts: {
   panelW: number;
   panelH: number;
   anchor: "top" | "bottom";
-  rotate180: boolean;
+  panelIsRotated: boolean;
 }) {
-  const { page, text, font, fontSize, panelX, panelY, panelW, panelH, anchor, rotate180 } = opts;
+  const { page, text, font, fontSize, panelX, panelY, panelW, panelH, anchor, panelIsRotated } =
+    opts;
 
   const padX = 6;
   const padY = 3;
@@ -76,25 +82,30 @@ function drawPanelLabel(opts: {
   const textW = font.widthOfTextAtSize(text, fontSize);
   const textH = fontSize;
 
-  // Center horizontally in the panel
+  // Base placement (for NON-rotated panels)
   const tx = panelX + panelW / 2 - textW / 2;
 
-  // Position vertically inside the panel
-  // "top" means around the first quarter down from the top (your request)
-  // "bottom" means near the bottom
-  const ty =
-    anchor === "top"
-      ? panelY + panelH * 0.72 // roughly "first quarter of vertical" (high on the panel)
-      : panelY + 8;
+  // Your requested vertical intent:
+  // - "top" = around first quarter down (high)
+  // - "bottom" = near bottom
+  const ty = anchor === "top" ? panelY + panelH * 0.80 : panelY + 10;
 
-  // Background strip
   const rectW = textW + padX * 2;
   const rectH = textH + padY * 2;
-  const rx = tx - padX;
-  const ry = ty - padY;
 
-  if (rotate180) {
-    // Rotate around lower-left corner compensation: draw at (x+w, y+h) with rotate 180
+  let rx = tx - padX;
+  let ry = ty - padY;
+
+  // If the panel is rotated 180° on the sheet (top row),
+  // mirror the label's position inside the panel so it ends up
+  // in the intended spot on the folded page.
+  if (panelIsRotated) {
+    rx = panelX + (panelW - (rx - panelX) - rectW);
+    ry = panelY + (panelH - (ry - panelY) - rectH);
+  }
+
+  if (panelIsRotated) {
+    // Draw rotated-in-place (same bounding box, just rotated)
     page.drawRectangle({
       x: rx + rectW,
       y: ry + rectH,
@@ -105,8 +116,8 @@ function drawPanelLabel(opts: {
     });
 
     page.drawText(text, {
-      x: tx + textW,
-      y: ty + textH,
+      x: rx + padX + textW,
+      y: ry + padY + textH,
       size: fontSize,
       font,
       color: rgb(0, 0, 0),
@@ -122,8 +133,8 @@ function drawPanelLabel(opts: {
     });
 
     page.drawText(text, {
-      x: tx,
-      y: ty,
+      x: rx + padX,
+      y: ry + padY,
       size: fontSize,
       font,
       color: rgb(0, 0, 0),
@@ -135,10 +146,9 @@ export async function POST(req: Request) {
   try {
     const form = await req.formData();
 
-    // "sheet12" | "zine8"
     const mode = asString(form.get("mode")) || "sheet12";
 
-    // Only used when mode === "zine8"
+    // Only for zine mode
     const includeBackText = asString(form.get("includeBackText")) === "true";
     const backText = asString(form.get("backText"));
 
@@ -150,13 +160,13 @@ export async function POST(req: Request) {
     const pdf = await PDFDocument.create();
     const isZine = mode === "zine8";
 
-    // Page size:
-    // - Sheet12: Portrait Letter
-    // - Zine8: Landscape Letter (classic cut+fold template)
+    // Letter sizes:
+    // sheet12: portrait
+    // zine8: landscape (classic fold/cut)
     const PAGE_W = isZine ? 792 : 612;
     const PAGE_H = isZine ? 612 : 792;
 
-    // ---- Page 1 (front sheet) ----
+    // ---------------- PAGE 1: images ----------------
     const page1 = pdf.addPage([PAGE_W, PAGE_H]);
 
     const COLS = isZine ? 4 : 3;
@@ -172,13 +182,12 @@ export async function POST(req: Request) {
 
     const selected = files.slice(0, maxImages);
 
-    // Fonts for panel overlays (zine only)
     const coverFont = await pdf.embedFont(StandardFonts.HelveticaBold);
     const footerFont = await pdf.embedFont(StandardFonts.HelveticaOblique);
 
     // Classic mini-zine imposition:
     // Top row (upside down): 8,1,2,3
-    // Bottom row: 7,6,5,4
+    // Bottom row:            7,6,5,4
     const zineSlotForPage = (pageNum: number) => {
       const map: Record<number, number> = {
         8: 0,
@@ -193,6 +202,7 @@ export async function POST(req: Request) {
       return map[pageNum];
     };
 
+    // -------- IMAGE LOOP --------
     for (let i = 0; i < selected.length; i++) {
       const f = selected[i];
       if (f.type !== "image/jpeg" && f.type !== "image/png") continue;
@@ -201,9 +211,9 @@ export async function POST(req: Request) {
       const embedded =
         f.type === "image/png" ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
 
-      const pageNum = i + 1;
+      const pageNum = i + 1; // zine page number 1..8 (or 1..12 in sheet mode)
 
-      // Determine which panel slot this page goes into
+      // Which cell does this image go to?
       let cellIndex = i;
       if (isZine) cellIndex = zineSlotForPage(pageNum);
 
@@ -214,20 +224,19 @@ export async function POST(req: Request) {
       const yTop = PAGE_H - MARGIN_TOP - row * (cellH + GUTTER);
       const panelY = yTop - cellH;
 
-      // Fit image to panel, no cropping
+      // Fit image (no cropping)
       const dims = embedded.scale(1);
       const scale = Math.min(cellW / dims.width, cellH / dims.height);
-
       const drawW = dims.width * scale;
       const drawH = dims.height * scale;
 
       const dx = panelX + (cellW - drawW) / 2;
       const dy = panelY + (cellH - drawH) / 2;
 
-      const topRowRotated = isZine && row === 0;
+      const panelIsRotated = isZine && row === 0;
 
-      // Draw image (rotate top row)
-      if (topRowRotated) {
+      // Draw image (rotate top row for zine template)
+      if (panelIsRotated) {
         page1.drawImage(embedded, {
           x: dx + drawW,
           y: dy + drawH,
@@ -239,26 +248,28 @@ export async function POST(req: Request) {
         page1.drawImage(embedded, { x: dx, y: dy, width: drawW, height: drawH });
       }
 
-      // ---- Put text on the MINI-PAGES (page 1 and page 8 of the zine) ----
-      if (isZine && pageNum === 1) {
+      // ---- ZINE TEXT (correct pages) ----
+      // Front cover is page 8
+      if (isZine && pageNum === 8) {
         drawPanelLabel({
           page: page1,
           text: "Close Friends Only",
           font: coverFont,
-          fontSize: 10,
+          fontSize: 15,
           panelX,
           panelY,
           panelW: cellW,
           panelH: cellH,
           anchor: "top",
-          rotate180: topRowRotated, // rotate if panel is in rotated row
+          panelIsRotated,
         });
       }
 
-      if (isZine && pageNum === 8) {
+      // Back cover is page 1
+      if (isZine && pageNum === 1) {
         drawPanelLabel({
           page: page1,
-          text: "Open the zine to read the letter.",
+          text: "Unfold the zine to read the letter.",
           font: footerFont,
           fontSize: 7,
           panelX,
@@ -266,35 +277,45 @@ export async function POST(req: Request) {
           panelW: cellW,
           panelH: cellH,
           anchor: "bottom",
-          rotate180: topRowRotated, // rotate if panel is in rotated row
+          panelIsRotated,
         });
       }
     }
 
-    // ---- Optional Page 2 (back letter page) — only for Zine ----
-    if (isZine && includeBackText) {
-      const page2 = pdf.addPage([PAGE_W, PAGE_H]);
-      const font = await pdf.embedFont(StandardFonts.Helvetica);
+  // ---------------- PAGE 2: optional letter (duplex back) ----------------
+// Draw normally so fitting is correct, then rotate the whole page 180°.
+if (isZine && includeBackText) {
+  const page2 = pdf.addPage([PAGE_W, PAGE_H]);
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
 
-      const margin = 32;
-      const maxWidth = PAGE_W - margin * 2;
-      const maxHeight = PAGE_H - margin * 2;
+  const margin = 32;
+  const maxWidth = PAGE_W - margin * 2;
+  const maxHeight = PAGE_H - margin * 2;
 
-      const { fontSize, lineHeight, lines } = pickFontSizeToFillPage(
-        font,
-        backText || "",
-        maxWidth,
-        maxHeight
-      );
+  const { fontSize, leading, lines } = pickFontSizeToFillPage(
+    font,
+    backText || "",
+    maxWidth,
+    maxHeight
+  );
 
-      const textBlockHeight = lines.length * lineHeight;
-      let y = margin + (maxHeight - textBlockHeight) / 2 + textBlockHeight - fontSize;
+  // Start at top margin and flow downward
+  let y = PAGE_H - margin - fontSize;
 
-      for (const line of lines) {
-        page2.drawText(line, { x: margin, y, size: fontSize, font, color: rgb(0, 0, 0) });
-        y -= lineHeight;
-      }
-    }
+  for (const line of lines) {
+    page2.drawText(line, {
+      x: margin,
+      y,
+      size: fontSize,
+      font,
+      color: rgb(0, 0, 0),
+    });
+    y -= leading;
+  }
+
+  // Rotate the entire page for duplex landscape printing
+  page2.setRotation(degrees(180));
+}
 
     const pdfBytes = await pdf.save();
 

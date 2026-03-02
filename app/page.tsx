@@ -25,7 +25,6 @@ export default function Home() {
   const [files, setFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<Mode>("sheet12");
 
-  // Optional extra text page for zine printing
   const [includeBackText, setIncludeBackText] = useState(false);
   const [backText, setBackText] = useState("");
 
@@ -143,7 +142,7 @@ export default function Home() {
 
         {mode === "zine8" && (
           <div style={{ marginBottom: 16 }}>
-            <strong>Optional extra text page (PDF page 2)</strong>
+            <strong>Optional extra letter page (PDF page 2)</strong>
             <div style={{ marginTop: 8 }}>
               <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <input
