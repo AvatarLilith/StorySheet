@@ -19,41 +19,32 @@ async function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promis
   return new Promise((res) => canvas.toBlob((b) => res(b!), "image/jpeg", quality));
 }
 
-type Mode = "sheet12" | "zine8";
-
 export default function Home() {
-  const [files, setFiles] = useState<File[]>([]);
-  const [mode, setMode] = useState<Mode>("sheet12");
+  const [step, setStep] = useState<1 | 2>(1);
 
-  const [includeBackText, setIncludeBackText] = useState(false);
-  const [backText, setBackText] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [letter, setLetter] = useState("");
 
   const [status, setStatus] = useState("");
 
-  const maxImages = mode === "zine8" ? 8 : 12;
+  const maxImages = 8;
 
   const helper = useMemo(() => {
-    if (!files.length) return `Pick up to ${maxImages} photos.`;
-    if (files.length < maxImages) return `Add ${maxImages - files.length} more (or generate anyway).`;
-    if (files.length === maxImages) return "Perfect. Generate the PDF.";
+    if (!files.length) return `Choose ${maxImages} screenshots.`;
+    if (files.length < maxImages) return `Add ${maxImages - files.length} more.`;
+    if (files.length === maxImages) return "Perfect.";
     return `You selected ${files.length}. We’ll use the first ${maxImages}.`;
-  }, [files.length, maxImages]);
+  }, [files.length]);
 
   async function generate() {
     if (!files.length) return;
 
-    setStatus("Compressing images…");
+    setStatus("Compressing…");
 
     const form = new FormData();
-    form.append("mode", mode);
-
-    if (mode === "zine8") {
-      form.append("includeBackText", includeBackText ? "true" : "false");
-      form.append("backText", backText);
-    } else {
-      form.append("includeBackText", "false");
-      form.append("backText", "");
-    }
+    form.append("mode", "zine8");
+    form.append("includeBackText", "true");
+    form.append("backText", letter);
 
     const selected = files.slice(0, maxImages);
     for (const file of selected) {
@@ -77,7 +68,7 @@ export default function Home() {
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = mode === "zine8" ? "zine.pdf" : "storysheet.pdf";
+    a.download = "close-friends-zine.pdf";
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -86,114 +77,195 @@ export default function Home() {
     setStatus("Downloaded.");
   }
 
-  return (
-    <main style={{ maxWidth: 760, margin: "60px auto", padding: 20, fontFamily: "system-ui" }}>
-      <h1 style={{ marginBottom: 6 }}>StorySheet</h1>
-      <p style={{ marginTop: 0, opacity: 0.85 }}>Single Page (12-up) or Mini-Zine (cut & fold).</p>
+  const PhoneFrame = ({ children }: { children: React.ReactNode }) => (
+    <div
+      style={{
+        width: 360,
+        maxWidth: "92vw",
+        border: "1px solid #bbb",
+        borderRadius: 18,
+        background: "#fff",
+        overflow: "hidden",
+        boxShadow: "0 1px 0 rgba(0,0,0,0.05)",
+      }}
+    >
+      {/* Top bar */}
+      <div style={{ display: "flex", alignItems: "center", padding: "10px 12px", gap: 10 }}>
+        <div style={{ width: 18, height: 18, borderRadius: 999, background: "#000" }} />
+        <div style={{ fontSize: 12, fontWeight: 600 }}>Close Friends Only</div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              alignItems: "center",
+              padding: "3px 8px",
+              borderRadius: 999,
+              background: "#00c853",
+              color: "#000",
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+            title="Close Friends"
+          >
+            ★ <span style={{ fontWeight: 700 }}>⌄</span>
+          </div>
+          <div style={{ fontSize: 22, lineHeight: 1 }}>×</div>
+        </div>
+      </div>
 
-      <div style={{ padding: 16, border: "1px solid #ddd", borderRadius: 14 }}>
-        <div style={{ marginBottom: 16 }}>
-          <strong>Format</strong>
-          <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
-            <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                type="radio"
-                name="mode"
-                checked={mode === "sheet12"}
-                onChange={() => {
-                  setMode("sheet12");
-                  setIncludeBackText(false);
-                  setBackText("");
+      <div style={{ padding: 18 }}>{children}</div>
+
+      {/* Bottom nav */}
+      <div
+        style={{
+          borderTop: "1px solid #eee",
+          padding: "10px 16px",
+          display: "flex",
+          justifyContent: "space-around",
+          fontSize: 11,
+          color: "#222",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 18 }}>⤴</div>
+          Share
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 18 }}>●</div>
+          Email Me
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 18 }}>…</div>
+          More
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "start center",
+        padding: "40px 20px",
+        fontFamily: "system-ui",
+        background: "#f6f6f6",
+      }}
+    >
+      <PhoneFrame>
+        {step === 1 ? (
+          // ---------------- Screen 1: Instructions ----------------
+          <div>
+            <ol style={{ paddingLeft: 18, margin: 0, lineHeight: 1.5, fontSize: 16 }}>
+              <li style={{ marginBottom: 10 }}>
+                Take <b>8 screenshots</b> from your Close Friend’s Instagram Story Archive from the
+                past month.
+              </li>
+              <li style={{ marginBottom: 10 }}>
+                Upload the screenshots. <span style={{ fontSize: 14 }}>(Nothing is stored.)</span>
+              </li>
+              <li style={{ marginBottom: 10 }}>Write your letter.</li>
+              <li style={{ marginBottom: 10 }}>Fold your zine.</li>
+              <li style={{ marginBottom: 10 }}>Seal it with a kiss.</li>
+              <li style={{ marginBottom: 10 }}>Mail it to your Close Friend(s).</li>
+              <li style={{ marginBottom: 0 }}>Send them this link so they can write you back.</li>
+            </ol>
+
+            <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 14, marginBottom: 6 }}>How to fold:</div>
+                <img
+                  src="/fold-guide.gif"
+                  alt="How to fold the zine"
+                  style={{ width: 100, borderRadius: 8, border: "1px solid #ddd" }}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 22, display: "flex", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setStep(2)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  fontSize: 14,
+                  cursor: "pointer",
+                  color: "#111",
+                }}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        ) : (
+          // ---------------- Screen 2: Maker ----------------
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
+              <button
+                onClick={() => setStep(1)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  fontSize: 14,
+                  cursor: "pointer",
+                  color: "#111",
+                }}
+              >
+                ← Previous
+              </button>
+
+              <div style={{ fontSize: 12, opacity: 0.65 }}>{helper}</div>
+            </div>
+
+            <div style={{ display: "grid", gap: 14 }}>
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  multiple
+                  onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+                />
+              </div>
+
+              <textarea
+                value={letter}
+                onChange={(e) => setLetter(e.target.value)}
+                placeholder="Write your letter…"
+                rows={8}
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #bbb",
+                  fontSize: 14,
+                  resize: "none",
                 }}
               />
-              Single Page (12-up)
-            </label>
 
-            <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                type="radio"
-                name="mode"
-                checked={mode === "zine8"}
-                onChange={() => setMode("zine8")}
-              />
-              Zine (8-panel cut & fold)
-            </label>
-          </div>
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <button
+                  onClick={generate}
+                  disabled={!files.length}
+                  style={{
+                    padding: "10px 18px",
+                    borderRadius: 10,
+                    border: "1px solid #111",
+                    background: files.length ? "#111" : "#888",
+                    color: "#fff",
+                    cursor: files.length ? "pointer" : "not-allowed",
+                  }}
+                >
+                  Download
+                </button>
+              </div>
 
-          {mode === "zine8" && (
-            <p style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>
-              Prints <b>landscape</b>. Fold in half, cut the center slit, then fold into a booklet.
-            </p>
-          )}
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <strong>Photos</strong>
-          <div style={{ marginTop: 8 }}>
-            <input
-              type="file"
-              accept="image/jpeg,image/png"
-              multiple
-              onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-            />
-            <p style={{ margin: "8px 0 0", opacity: 0.8 }}>{helper}</p>
-          </div>
-        </div>
-
-        {mode === "zine8" && (
-          <div style={{ marginBottom: 16 }}>
-            <strong>Optional extra letter page (PDF page 2)</strong>
-            <div style={{ marginTop: 8 }}>
-              <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <input
-                  type="checkbox"
-                  checked={includeBackText}
-                  onChange={(e) => setIncludeBackText(e.target.checked)}
-                />
-                Add a letter page
-              </label>
-
-              {includeBackText && (
-                <div style={{ marginTop: 10 }}>
-                  <textarea
-                    value={backText}
-                    onChange={(e) => setBackText(e.target.value)}
-                    rows={9}
-                    placeholder="Write the letter here…"
-                    style={{
-                      width: "100%",
-                      padding: 10,
-                      borderRadius: 10,
-                      border: "1px solid #ddd",
-                    }}
-                  />
-                </div>
-              )}
+              {status && <div style={{ textAlign: "center", fontSize: 12 }}>{status}</div>}
             </div>
           </div>
         )}
-
-        <button
-          onClick={generate}
-          disabled={!files.length}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 10,
-            border: "1px solid #111",
-            background: files.length ? "#111" : "#888",
-            color: "#fff",
-            cursor: files.length ? "pointer" : "not-allowed",
-          }}
-        >
-          Generate PDF
-        </button>
-
-        {status && <p style={{ marginTop: 12 }}>{status}</p>}
-      </div>
-
-      <p style={{ marginTop: 16, fontSize: 13, opacity: 0.7 }}>
-        Privacy: images are compressed in your browser and not stored by the app.
-      </p>
+      </PhoneFrame>
     </main>
   );
 }
