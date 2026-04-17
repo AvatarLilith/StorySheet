@@ -54,21 +54,31 @@ function Shell({ step, onLeft, onRight, onClose, children }: {
     alignItems: "center",
     width: "100%",
     maxWidth: 390,
+    height: "100dvh",
+    boxSizing: "border-box",
+    gap: 12,
     padding: "12px",
     background: "#fff",
   }}
 >      {/* Phone frame */}
-      <div style={{
-        width: "100%",
-        height: "100dvh",
-        maxHeight: 690,        
-        border: showUI ? "1px solid #ccc" : "none",
-        borderRadius: showUI ? 3 : 0,
-        background: showUI ? "#fff" : "fff",
-        overflow: "hidden", display: "flex", flexDirection: "column", position: "relative",
-        fontFamily: FONT,
-        color: "#111",
-      }}>
+      <div
+  style={{
+    width: "100%",
+    maxWidth: 390,
+    aspectRatio: "390 / 690",
+    maxHeight: showUI ? "calc(100dvh - 88px)" : "690px",
+    border: showUI ? "1px solid #999" : "none",
+    borderRadius: showUI ? 8 : 0,
+    background: "#fff",
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    position: "relative",
+    fontFamily: FONT,
+    color: "#111",
+    boxShadow: showUI ? "0 1px 6px rgba(0,0,0,0.06)" : "none",
+  }}
+      >
         {inStory && (
           <div style={{ display: "flex", gap: 3, padding: "10px 10px 0", flexShrink: 0 }}>
             {STORY_STEPS.map((_, i) => (
