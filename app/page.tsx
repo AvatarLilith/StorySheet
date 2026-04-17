@@ -36,52 +36,89 @@ function Shell({ step, onLeft, onRight, onClose, children }: {
   const inStory = STORY_STEPS.includes(step);
   const storyIndex = STORY_STEPS.indexOf(step);
   const showUI = !NO_UI.includes(step);
+  const [showPopup, setShowPopup] = useState(false);
+
+  function handleShare() {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      navigator.share({ url: window.location.href });
+    } else {
+      window.open(window.location.href);
+    }
+  }
 
   return (
-    <div style={{
-      width: 390, height: 690, maxWidth: "100vw", maxHeight: "100vh",
-      border: showUI ? "1px solid #ccc" : "none",
-      borderRadius: showUI ? 3 : 0,
-      background: showUI ? "#fff" : "transparent",
-      overflow: "hidden", display: "flex", flexDirection: "column", position: "relative",
-      fontFamily: FONT,
-    }}>
-      {inStory && (
-        <div style={{ display: "flex", gap: 3, padding: "10px 10px 0", flexShrink: 0 }}>
-          {STORY_STEPS.map((_, i) => (
-            <div key={i} style={{ flex: 1, height: 2, borderRadius: 999, background: i <= storyIndex ? "#000" : "#ddd" }} />
-          ))}
-        </div>
-      )}
-      {showUI && (
-        <div style={{ display: "flex", alignItems: "center", padding: "10px 14px 8px", gap: 10, flexShrink: 0 }}>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#ccc", flexShrink: 0 }} />
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, fontFamily: FONT }}>Close Friends Only</div>
-            <div style={{ fontSize: 11, color: "#555", fontFamily: FONT }}>An Epistolary Exchange</div>
-          </div>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
-            <div style={{ padding: "4px 10px", borderRadius: 999, background: "#00e676", fontSize: 13, fontWeight: 700, fontFamily: FONT, display: "flex", alignItems: "center", gap: 4 }}>
-              ✉ <span style={{ fontSize: 10 }}>▾</span>
-            </div>
-            <div onClick={onClose} style={{ fontSize: 22, color: "#111", fontFamily: FONT, lineHeight: 1, cursor: "pointer" }}>×</div>
-          </div>
-        </div>
-      )}
-      <div style={{ flex: 1, overflowY: "auto", position: "relative", padding: showUI ? "12px 20px" : "0" }}>
-        {children}
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: 390 }}>
+      {/* Phone frame */}
+      <div style={{
+        width: "100%",
+        height: 690,
+        border: showUI ? "1px solid #ccc" : "none",
+        borderRadius: showUI ? 3 : 0,
+        background: showUI ? "#fff" : "transparent",
+        overflow: "hidden", display: "flex", flexDirection: "column", position: "relative",
+        fontFamily: FONT,
+      }}>
         {inStory && (
-          <>
-            <div onClick={onLeft} style={{ position: "absolute", left: 0, top: 0, width: "35%", height: "100%", cursor: "pointer", zIndex: 10 }} />
-            <div onClick={onRight} style={{ position: "absolute", right: 0, top: 0, width: "35%", height: "100%", cursor: "pointer", zIndex: 10 }} />
-          </>
+          <div style={{ display: "flex", gap: 3, padding: "10px 10px 0", flexShrink: 0 }}>
+            {STORY_STEPS.map((_, i) => (
+              <div key={i} style={{ flex: 1, height: 2, borderRadius: 999, background: i <= storyIndex ? "#000" : "#ddd" }} />
+            ))}
+          </div>
         )}
+
+        {showUI && (
+          <div style={{ display: "flex", alignItems: "center", padding: "12px 16px 10px", gap: 10, flexShrink: 0 }}>
+            <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#ccc", flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, fontFamily: FONT }}>Close Friends Only</div>
+              <div style={{ fontSize: 12, color: "#555", fontFamily: FONT }}>An Epistolary Exchange</div>
+            </div>
+            <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
+              <div style={{ position: "relative" }}>
+                <div
+                  onClick={() => setShowPopup(p => !p)}
+                  style={{ padding: "5px 12px", borderRadius: 999, background: "#00e676", fontSize: 14, fontWeight: 700, fontFamily: FONT, display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}>
+                  ✉ <span style={{ fontSize: 11 }}>▾</span>
+                </div>
+                {showPopup && (
+                  <div style={{ position: "absolute", right: 0, top: 40, background: "#fff", border: "1px solid #eee", borderRadius: 8, padding: "8px 14px", fontSize: 12, fontFamily: FONT, whiteSpace: "nowrap", zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+                    close friends only
+                  </div>
+                )}
+              </div>
+              <div onClick={onClose} style={{ fontSize: 28, fontWeight: 300, color: "#111", fontFamily: FONT, lineHeight: 1, cursor: "pointer" }}>×</div>
+            </div>
+          </div>
+        )}
+
+        <div style={{ flex: 1, overflowY: "auto", position: "relative", padding: showUI ? "12px 20px" : "0" }}>
+          {children}
+          {inStory && (
+            <>
+              <div onClick={onLeft} style={{ position: "absolute", left: 0, top: 0, width: "35%", height: "100%", cursor: "pointer", zIndex: 10 }} />
+              <div onClick={onRight} style={{ position: "absolute", right: 0, top: 0, width: "35%", height: "100%", cursor: "pointer", zIndex: 10 }} />
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Bottom bar — outside the frame */}
       {showUI && (
-        <div style={{ borderTop: "1px solid #eee", padding: "10px 16px", display: "flex", justifyContent: "space-around", fontSize: 11, fontFamily: FONT, color: "#222", flexShrink: 0 }}>
-          {[["⤴", "Share"], ["●", "Email Me"], ["…", "More"]].map(([i, l]) => (
-            <div key={l} style={{ textAlign: "center" }}><div style={{ fontSize: 18, marginBottom: 2 }}>{i}</div>{l}</div>
-          ))}
+        <div style={{ display: "flex", justifyContent: "center", gap: 40, padding: "16px 0 0", fontSize: 12, fontFamily: FONT, color: "#222", width: "100%" }}>
+          <div style={{ textAlign: "center", cursor: "pointer" }} onClick={handleShare}>
+            <div style={{ fontSize: 24, marginBottom: 4 }}>⤴</div>
+            Share
+          </div>
+          <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => window.open("mailto:audiovisual.lilith@gmail.com")}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#111", margin: "0 auto 4px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: "#fff", fontSize: 14 }}>✉</span>
+            </div>
+            Email Me
+          </div>
+          <div style={{ textAlign: "center", cursor: "pointer" }} onClick={() => window.open("https://avatarlilith.com")}>
+            <div style={{ fontSize: 24, marginBottom: 4, letterSpacing: 2 }}>•••</div>
+            More
+          </div>
         </div>
       )}
     </div>
@@ -221,6 +258,7 @@ export default function Home() {
 
         {step === 5 && (
           <div style={{ paddingTop: 24, fontFamily: FONT, fontSize: 15, lineHeight: 1.7 }}>
+            <p style={{ marginBottom: 16 }}>Set a timer for 3 minutes.</p>
             <p style={{ marginBottom: 16 }}>Open your Instagram app and go to your Archive.</p>
             <p style={{ marginBottom: 16 }}>Screenshot 8 photos that are meaningful to you.</p>
             <p style={{ marginBottom: 32 }}>Come back to this page when you're done.</p>
@@ -243,6 +281,9 @@ export default function Home() {
               <p style={{ fontSize: 12, marginTop: 8 }}>
                 {MESSAGES[(uploadAttempts - 1) % MESSAGES.length]}
               </p>
+            )}
+            {files.length === 8 && (
+              <p style={{ fontSize: 12, marginTop: 8 }}>perfect.</p>
             )}
           </div>
         )}
