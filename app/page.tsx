@@ -47,8 +47,17 @@ function Shell({ step, onLeft, onRight, onClose, children }: {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: 390 }}>
-      {/* Phone frame */}
+<div
+  style={{
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 390,
+    padding: "12px",
+    background: "#fff",
+  }}
+>      {/* Phone frame */}
       <div style={{
         width: "100%",
         height: "100dvh",
@@ -58,6 +67,7 @@ function Shell({ step, onLeft, onRight, onClose, children }: {
         background: showUI ? "#fff" : "fff",
         overflow: "hidden", display: "flex", flexDirection: "column", position: "relative",
         fontFamily: FONT,
+        color: "#111",
       }}>
         {inStory && (
           <div style={{ display: "flex", gap: 3, padding: "10px 10px 0", flexShrink: 0 }}>
