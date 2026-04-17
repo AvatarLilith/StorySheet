@@ -13,23 +13,38 @@ async function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promis
   return new Promise((res) => canvas.toBlob((b) => res(b!), "image/jpeg", quality));
 }
 
-const STORY_STEPS = [3, 4, 5, 6, 7, 8, 9];
+const FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+const STORY_STEPS = [3, 4, 5, 6, 7, 8, 9, 10];
+const MESSAGES = ["give me 8 pls :)", "hey!", "I said 8 pls", "where are you going?", "somebody doesn't know how to listen to directions", "stubborn, aren't you…"];
+const NO_UI = [-1, 0, 1, 2];
 
-function Shell({ step, onLeft, onRight, children }: {
+const BlackBtn = ({ onClick, label }: { onClick: () => void; label: string }) => (
+  <button onClick={onClick} style={{
+    background: "#111", color: "#fff", border: "none",
+    borderRadius: 10, padding: "10px 24px", fontSize: 15,
+    fontFamily: FONT, cursor: "pointer", fontWeight: 500,
+  }}>{label}</button>
+);
+
+function Shell({ step, onLeft, onRight, onClose, children }: {
   step: number;
   onLeft: () => void;
   onRight: () => void;
+  onClose: () => void;
   children: React.ReactNode;
 }) {
   const inStory = STORY_STEPS.includes(step);
   const storyIndex = STORY_STEPS.indexOf(step);
+  const showUI = !NO_UI.includes(step);
 
   return (
     <div style={{
       width: 390, height: 690, maxWidth: "100vw", maxHeight: "100vh",
-      border: "1px solid #ccc", borderRadius: 3, background: "#fff",
+      border: showUI ? "1px solid #ccc" : "none",
+      borderRadius: showUI ? 3 : 0,
+      background: showUI ? "#fff" : "transparent",
       overflow: "hidden", display: "flex", flexDirection: "column", position: "relative",
-      fontFamily: "'Times New Roman', Times, serif",
+      fontFamily: FONT,
     }}>
       {inStory && (
         <div style={{ display: "flex", gap: 3, padding: "10px 10px 0", flexShrink: 0 }}>
@@ -38,22 +53,22 @@ function Shell({ step, onLeft, onRight, children }: {
           ))}
         </div>
       )}
-
-      <div style={{ display: "flex", alignItems: "center", padding: "10px 14px 8px", gap: 10, flexShrink: 0 }}>
-        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#ccc", flexShrink: 0 }} />
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "system-ui" }}>Close Friends Only</div>
-          <div style={{ fontSize: 11, color: "#555", fontFamily: "system-ui" }}>An Epistolary Exchange</div>
-        </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
-          <div style={{ padding: "4px 10px", borderRadius: 999, background: "#00e676", fontSize: 13, fontWeight: 700, fontFamily: "system-ui", display: "flex", alignItems: "center", gap: 4 }}>
-            ✉ <span style={{ fontSize: 10 }}>▾</span>
+      {showUI && (
+        <div style={{ display: "flex", alignItems: "center", padding: "10px 14px 8px", gap: 10, flexShrink: 0 }}>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#ccc", flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, fontFamily: FONT }}>Close Friends Only</div>
+            <div style={{ fontSize: 11, color: "#555", fontFamily: FONT }}>An Epistolary Exchange</div>
           </div>
-          <div style={{ fontSize: 22, color: "#111", fontFamily: "system-ui", lineHeight: 1 }}>×</div>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
+            <div style={{ padding: "4px 10px", borderRadius: 999, background: "#00e676", fontSize: 13, fontWeight: 700, fontFamily: FONT, display: "flex", alignItems: "center", gap: 4 }}>
+              ✉ <span style={{ fontSize: 10 }}>▾</span>
+            </div>
+            <div onClick={onClose} style={{ fontSize: 22, color: "#111", fontFamily: FONT, lineHeight: 1, cursor: "pointer" }}>×</div>
+          </div>
         </div>
-      </div>
-
-      <div style={{ flex: 1, overflowY: "auto", position: "relative", padding: "12px 20px 12px" }}>
+      )}
+      <div style={{ flex: 1, overflowY: "auto", position: "relative", padding: showUI ? "12px 20px" : "0" }}>
         {children}
         {inStory && (
           <>
@@ -62,12 +77,13 @@ function Shell({ step, onLeft, onRight, children }: {
           </>
         )}
       </div>
-
-      <div style={{ borderTop: "1px solid #eee", padding: "10px 16px", display: "flex", justifyContent: "space-around", fontSize: 11, fontFamily: "system-ui", color: "#222", flexShrink: 0 }}>
-        {[["⤴", "Share"], ["●", "Email Me"], ["…", "More"]].map(([i, l]) => (
-          <div key={l} style={{ textAlign: "center" }}><div style={{ fontSize: 18, marginBottom: 2 }}>{i}</div>{l}</div>
-        ))}
-      </div>
+      {showUI && (
+        <div style={{ borderTop: "1px solid #eee", padding: "10px 16px", display: "flex", justifyContent: "space-around", fontSize: 11, fontFamily: FONT, color: "#222", flexShrink: 0 }}>
+          {[["⤴", "Share"], ["●", "Email Me"], ["…", "More"]].map(([i, l]) => (
+            <div key={l} style={{ textAlign: "center" }}><div style={{ fontSize: 18, marginBottom: 2 }}>{i}</div>{l}</div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -77,34 +93,32 @@ export default function Home() {
   const [files, setFiles] = useState<File[]>([]);
   const [letter, setLetter] = useState("");
   const [status, setStatus] = useState("");
-const [uploadError, setUploadError] = useState(false);
-const [uploadAttempts, setUploadAttempts] = useState(0);
+  const [uploadError, setUploadError] = useState(false);
+  const [uploadAttempts, setUploadAttempts] = useState(0);
 
   const helper = useMemo(() => {
     if (!files.length) return "Choose 8 screenshots.";
     if (files.length < 8) return `Add ${8 - files.length} more.`;
-    if (files.length === 8) return "Perfect.";
-    return "We'll use the first 8.";
+    return "";
   }, [files.length]);
 
-  function reset() { setStep(0); setFiles([]); setLetter(""); setStatus(""); }
+  function reset() { setStep(0); setFiles([]); setLetter(""); setStatus(""); setUploadError(false); setUploadAttempts(0); }
 
   function onLeft() {
     const i = STORY_STEPS.indexOf(step);
     if (i > 0) setStep(STORY_STEPS[i - 1]);
   }
 
-
-function onRight() {
-  const i = STORY_STEPS.indexOf(step);
-if (step === 6 && files.length < 8) {
-  setUploadError(true);
-  setUploadAttempts(a => a + 1);
-  return;
-}
-  setUploadError(false);
-  if (i < STORY_STEPS.length - 1) setStep(STORY_STEPS[i + 1]);
-}
+  function onRight() {
+    const i = STORY_STEPS.indexOf(step);
+    if (step === 6 && files.length < 8) {
+      setUploadError(true);
+      setUploadAttempts(a => a + 1);
+      return;
+    }
+    setUploadError(false);
+    if (i < STORY_STEPS.length - 1) setStep(STORY_STEPS[i + 1]);
+  }
 
   async function generate() {
     if (!files.length) return;
@@ -133,34 +147,17 @@ if (step === 6 && files.length < 8) {
     setStep(9);
   }
 
-  const p: React.CSSProperties = { fontSize: 17, lineHeight: 1.9, marginBottom: 14, fontWeight: 400 };
+  const p: React.CSSProperties = { fontSize: 17, lineHeight: 1.9, marginBottom: 14, fontWeight: 400, fontFamily: FONT };
 
   return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: "20px", fontFamily: "Georgia, serif", background: "#f0f0f0" }}>
-      <Shell step={step} onLeft={onLeft} onRight={onRight}>
+    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: "20px", fontFamily: FONT, background: "transparent" }}>
+      <Shell step={step} onLeft={onLeft} onRight={onRight} onClose={() => setStep(2)}>
 
-        {/* 0: Tools required */}
         {step === 0 && (
-          <div style={{ fontFamily: "system-ui", fontSize: 14, lineHeight: 1.9, paddingTop: 24 }}>
-            <p style={{ marginBottom: 12, fontSize: 14 }}>Tools required:</p>
-            <ol style={{ paddingLeft: 20, margin: 0 }}>
-              <li style={{ marginBottom: 8 }}>A printer</li>
-              <li style={{ marginBottom: 8 }}>Instagram</li>
-              <li style={{ marginBottom: 8 }}>An envelope</li>
-              <li style={{ marginBottom: 8 }}>A stamp</li>
-            </ol>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
-              <button onClick={() => setStep(1)} style={{ border: "none", background: "transparent", fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>Next →</button>
-            </div>
-          </div>
-        )}
-
-        {/* 1: You're invited */}
-        {step === 1 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%" }}>
-            <img src="/youre-invited.jpg" alt="You're invited" style={{ width: "100%", height: "auto", marginBottom: 20 }} />
+            <img src="/youre-invited.jpg" alt="You're invited" style={{ width: "80%", height: "auto", marginBottom: 20 }} />
             <div style={{ display: "flex", gap: 48, alignItems: "center" }}>
-              <button onClick={() => setStep(2)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
+              <button onClick={() => setStep(1)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
                 <img src="/y.jpg" alt="Y" style={{ height: 44, width: "auto" }} />
               </button>
               <button onClick={() => setStep(-1)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
@@ -170,26 +167,43 @@ if (step === 6 && files.length < 8) {
           </div>
         )}
 
-        {/* -1: See you later */}
         {step === -1 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center" }}>
             <div style={{ fontSize: 22, fontStyle: "italic", marginBottom: 36 }}>see you later</div>
-            <button onClick={reset} style={{ border: "none", background: "transparent", fontSize: 14, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}>
+            <button onClick={reset} style={{ border: "none", background: "transparent", fontSize: 14, cursor: "pointer", textDecoration: "underline", fontFamily: FONT }}>
               begin again
             </button>
           </div>
         )}
 
-        {/* 2: Profile bubble */}
+        {step === 1 && (
+          <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "24px" }}>
+            <div style={{ marginBottom: 8 }}>
+              <img src="/logo.jpg" alt="Close Friends Only" style={{ height: 60, width: "auto" }} />
+            </div>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <p style={{ marginBottom: 20, fontWeight: 700, fontSize: 18 }}>Tools required:</p>
+              <ol style={{ paddingLeft: 24, margin: 0 }}>
+                <li style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>A printer</li>
+                <li style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Instagram</li>
+                <li style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>An envelope</li>
+                <li style={{ fontSize: 18, fontWeight: 700 }}>A stamp</li>
+              </ol>
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 16 }}>
+              <BlackBtn onClick={() => setStep(2)} label="Begin" />
+            </div>
+          </div>
+        )}
+
         {step === 2 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%" }}>
-            <button onClick={() => setStep(3)} style={{ border: "none", background: "transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+            <button onClick={() => setStep(3)} style={{ border: "none", background: "transparent", cursor: "pointer" }}>
               <div style={{ width: 88, height: 88, borderRadius: "50%", background: "#ccc", outline: "3px solid #00e676", outlineOffset: 3 }} />
             </button>
           </div>
         )}
 
-        {/* 3: Letter */}
         {step === 3 && (
           <div style={{ paddingTop: 24 }}>
             <p style={p}>Dear Close Friend,</p>
@@ -199,66 +213,60 @@ if (step === 6 && files.length < 8) {
           </div>
         )}
 
-        {/* 4: Ask */}
         {step === 4 && (
           <div style={{ display: "flex", alignItems: "center", height: "100%" }}>
             <p style={{ ...p, marginBottom: 0 }}>I want you to do something for me.</p>
           </div>
         )}
 
-        {/* 5: Instagram task */}
         {step === 5 && (
-          <div style={{ paddingTop: 24, fontFamily: "system-ui", fontSize: 15, lineHeight: 1.7 }}>
+          <div style={{ paddingTop: 24, fontFamily: FONT, fontSize: 15, lineHeight: 1.7 }}>
             <p style={{ marginBottom: 16 }}>Open your Instagram app and go to your Archive.</p>
             <p style={{ marginBottom: 16 }}>Screenshot 8 photos that are meaningful to you.</p>
             <p style={{ marginBottom: 32 }}>Come back to this page when you're done.</p>
-            <div style={{ position: "relative", zIndex: 20 }}>
-              <button onClick={() => setStep(6)} style={{ border: "none", background: "transparent", fontSize: 15, cursor: "pointer", fontStyle: "italic", fontFamily: "inherit" }}>
-                I'm done
-              </button>
+            <div style={{ position: "relative", zIndex: 20, display: "flex", justifyContent: "flex-end" }}>
+              <BlackBtn onClick={() => setStep(6)} label="I'm done" />
             </div>
           </div>
         )}
 
-        {/* 6: Upload photos */}
         {step === 6 && (
-          <div style={{ paddingTop: 24, fontFamily: "system-ui", fontSize: 15 }}>
-            <p style={{ fontStyle: "italic", marginBottom: 20, fontFamily: "inherit", fontSize: 16 }}>Add them here. Don't be shy.</p>
+          <div style={{ paddingTop: 24, fontFamily: FONT, fontSize: 15 }}>
+            <p style={{ fontStyle: "italic", marginBottom: 20, fontSize: 16 }}>Add them here. Don't be shy.</p>
             <div style={{ position: "relative", zIndex: 20, marginBottom: 12 }}>
               <input type="file" accept="image/jpeg,image/png" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
             </div>
-<p style={{ fontSize: 12, opacity: 0.5, marginTop: 8 }}>{helper}</p>
-{uploadError && (
-  <p style={{ fontSize: 12, marginTop: 8, fontFamily: "inherit" }}>
-{["give me 8 pls :)", "hey!", "I said 8 pls", "where are you going?", "somebody doesn't know how to listen to directions", "stubborn, aren't you…"][(uploadAttempts - 1) % 6]}  </p>
-)}          </div>
+            {files.length < 8 && helper && (
+              <p style={{ fontSize: 12, opacity: 0.5, marginTop: 8 }}>{helper}</p>
+            )}
+            {uploadError && files.length < 8 && (
+              <p style={{ fontSize: 12, marginTop: 8 }}>
+                {MESSAGES[(uploadAttempts - 1) % MESSAGES.length]}
+              </p>
+            )}
+          </div>
         )}
 
-        {/* 7: Write letter */}
         {step === 7 && (
           <div style={{ paddingTop: 16, position: "relative", zIndex: 20, width: "100%" }}>
-            <p style={{ fontFamily: "system-ui", fontSize: 14, marginBottom: 10 }}>Write your letter:</p>
+            <p style={{ fontSize: 14, marginBottom: 10 }}>Write your letter:</p>
             <textarea
               value={letter}
               onChange={(e) => setLetter(e.target.value)}
               placeholder="Dear Close Friend…"
               rows={9}
-              style={{ width: "100%", padding: 12, borderRadius: 3, border: "1px solid #ccc", fontSize: 15, fontFamily: "inherit", resize: "none", boxSizing: "border-box", lineHeight: 1.7 }}
+              style={{ width: "100%", padding: 12, borderRadius: 3, border: "1px solid #ccc", fontSize: 15, fontFamily: FONT, resize: "none", boxSizing: "border-box", lineHeight: 1.7 }}
             />
           </div>
         )}
 
-        {/* 8: Download */}
         {step === 8 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", position: "relative", zIndex: 20 }}>
-            <button onClick={generate} disabled={!files.length} style={{ padding: "10px 28px", borderRadius: 3, border: "1px solid #111", background: files.length ? "#111" : "#999", color: "#fff", fontSize: 15, cursor: files.length ? "pointer" : "not-allowed", fontFamily: "system-ui" }}>
-              Download
-            </button>
-            {status && <div style={{ marginTop: 16, fontSize: 12, fontFamily: "system-ui", opacity: 0.7 }}>{status}</div>}
+            <BlackBtn onClick={generate} label="Download" />
+            {status && <div style={{ marginTop: 16, fontSize: 12, opacity: 0.7 }}>{status}</div>}
           </div>
         )}
 
-        {/* 9: Print/Fold/Mail */}
         {step === 9 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center", lineHeight: 2.2 }}>
             <p style={{ fontSize: 16 }}>Print it.</p>
@@ -267,6 +275,13 @@ if (step === 6 && files.length < 8) {
             <p style={{ fontSize: 16 }}>Mail it.</p>
             <p style={{ marginTop: 20, fontSize: 15 }}>Sincerely,</p>
             <p style={{ fontStyle: "italic", fontSize: 15 }}>Avatar Lilith</p>
+          </div>
+        )}
+
+        {step === 10 && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center" }}>
+            <p style={{ fontSize: 16, marginBottom: 32 }}>begin again</p>
+            <BlackBtn onClick={reset} label="↺" />
           </div>
         )}
 
