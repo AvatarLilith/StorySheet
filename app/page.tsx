@@ -51,10 +51,11 @@ function Shell({ step, onLeft, onRight, onClose, children }: {
       {/* Phone frame */}
       <div style={{
         width: "100%",
-        height: 690,
+        height: "100dvh",
+        maxHeight: 690,        
         border: showUI ? "1px solid #ccc" : "none",
         borderRadius: showUI ? 3 : 0,
-        background: showUI ? "#fff" : "transparent",
+        background: showUI ? "#fff" : "fff",
         overflow: "hidden", display: "flex", flexDirection: "column", position: "relative",
         fontFamily: FONT,
       }}>
@@ -91,8 +92,7 @@ function Shell({ step, onLeft, onRight, onClose, children }: {
           </div>
         )}
 
-        <div style={{ flex: 1, overflowY: "auto", position: "relative", padding: showUI ? "12px 20px" : "0" }}>
-          {children}
+<div style={{ flex: 1, overflow: "hidden", position: "relative", padding: showUI ? "12px 20px" : "0" }}>          {children}
           {inStory && (
             <>
               <div onClick={onLeft} style={{ position: "absolute", left: 0, top: 0, width: "35%", height: "100%", cursor: "pointer", zIndex: 10 }} />
@@ -187,8 +187,17 @@ export default function Home() {
   const p: React.CSSProperties = { fontSize: 17, lineHeight: 1.9, marginBottom: 14, fontWeight: 400, fontFamily: FONT };
 
   return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: "20px", fontFamily: FONT, background: "transparent" }}>
-      <Shell step={step} onLeft={onLeft} onRight={onRight} onClose={() => setStep(2)}>
+<main
+  style={{
+    minHeight: "100dvh",
+    display: "grid",
+    placeItems: "center",
+    padding: "0",
+    fontFamily: FONT,
+    background: "#fff",
+    overflow: "hidden",
+  }}
+>      <Shell step={step} onLeft={onLeft} onRight={onRight} onClose={() => setStep(2)}>
 
         {step === 0 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%" }}>
@@ -207,7 +216,7 @@ export default function Home() {
         {step === -1 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center" }}>
             <div style={{ fontSize: 22, fontStyle: "italic", marginBottom: 36 }}>see you later</div>
-            <button onClick={reset} style={{ border: "none", background: "transparent", fontSize: 14, cursor: "pointer", textDecoration: "underline", fontFamily: FONT }}>
+            <button onClick={reset} style={{ border: "none", background: "#fff", fontSize: 14, cursor: "pointer", textDecoration: "underline", fontFamily: FONT }}>
               begin again
             </button>
           </div>
