@@ -1,271 +1,152 @@
 "use client";
+import { useState } from "react";
 
-import { useMemo, useState } from "react";
-
-async function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promise<Blob> {
-  const img = document.createElement("img");
-  img.src = URL.createObjectURL(file);
-  await new Promise((res) => (img.onload = res));
-
-  const canvas = document.createElement("canvas");
-  const scale = Math.min(1, maxWidth / img.width);
-
-  canvas.width = Math.round(img.width * scale);
-  canvas.height = Math.round(img.height * scale);
-
-  const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-  return new Promise((res) => canvas.toBlob((b) => res(b!), "image/jpeg", quality));
-}
+const API = "https://storysheet.vercel.app/api/generate";
 
 export default function Home() {
-  const [step, setStep] = useState<1 | 2>(1);
-
+  const [step, setStep] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
   const [letter, setLetter] = useState("");
-
   const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const maxImages = 8;
-
-  const helper = useMemo(() => {
-    if (!files.length) return `Choose ${maxImages} screenshots.`;
-    if (files.length < maxImages) return `Add ${maxImages - files.length} more.`;
-    if (files.length === maxImages) return "Perfect.";
-    return `You selected ${files.length}. We’ll use the first ${maxImages}.`;
-  }, [files.length]);
+  function pickFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    setFiles(Array.from(e.target.files ?? []).slice(0, 8));
+  }
 
   async function generate() {
     if (!files.length) return;
-
-    setStatus("Compressing…");
-
-    const form = new FormData();
-    form.append("mode", "zine8");
-    form.append("includeBackText", "true");
-    form.append("backText", letter);
-
-    const selected = files.slice(0, maxImages);
-    for (const file of selected) {
-      const compressed = await compressImage(file, 1200, 0.8);
-      form.append("images", compressed);
+    setLoading(true);
+    setStatus("Building your zine…");
+    try {
+      const form = new FormData();
+      form.append("mode", "zine8");
+      form.append("includeBackText", "true");
+      form.append("backText", letter);
+      for (const file of files.slice(0, 8)) form.append("images", file, file.name);
+      const res = await fetch(API, { method: "POST", body: form });
+      if (!res.ok) throw new Error("Server error: " + res.status);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "close-friends-zine.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setStatus("Downloaded!");
+      setStep(5);
+    } catch (err: any) {
+      setStatus("Error: " + err.message);
+    } finally {
+      setLoading(false);
     }
-
-    setStatus("Generating PDF…");
-
-    const res = await fetch("/api/generate", { method: "POST", body: form });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.log(text);
-      setStatus("Something went wrong.");
-      return;
-    }
-
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "close-friends-zine.pdf";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    URL.revokeObjectURL(url);
-    setStatus("Downloaded.");
   }
 
-  const PhoneFrame = ({ children }: { children: React.ReactNode }) => (
-    <div
-      style={{
-        width: 360,
-        maxWidth: "92vw",
-        border: "1px solid #bbb",
-        borderRadius: 18,
-        background: "#fff",
-        overflow: "hidden",
-        boxShadow: "0 1px 0 rgba(0,0,0,0.05)",
-      }}
-    >
-      {/* Top bar */}
-      <div style={{ display: "flex", alignItems: "center", padding: "10px 12px", gap: 10 }}>
-        <div style={{ width: 18, height: 18, borderRadius: 999, background: "#000" }} />
-        <div style={{ fontSize: 12, fontWeight: 600 }}>Close Friends Only</div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
-          <div
-            style={{
-              display: "flex",
-              gap: 6,
-              alignItems: "center",
-              padding: "3px 8px",
-              borderRadius: 999,
-              background: "#00c853",
-              color: "#000",
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-            title="Close Friends"
-          >
-            ★ <span style={{ fontWeight: 700 }}>⌄</span>
-          </div>
-          <div style={{ fontSize: 22, lineHeight: 1 }}>×</div>
-        </div>
-      </div>
-
-      <div style={{ padding: 18 }}>{children}</div>
-
-      {/* Bottom nav */}
-      <div
-        style={{
-          borderTop: "1px solid #eee",
-          padding: "10px 16px",
-          display: "flex",
-          justifyContent: "space-around",
-          fontSize: 11,
-          color: "#222",
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 18 }}>⤴</div>
-          Share
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 18 }}>●</div>
-          Email Me
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 18 }}>…</div>
-          More
-        </div>
-      </div>
+  const Next = ({ to, label = "Next →", italic = false }: { to: number; label?: string; italic?: boolean }) => (
+    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+      <button onClick={() => setStep(to)} style={{ border: "none", background: "transparent", fontSize: 14, cursor: "pointer", fontFamily: "system-ui", fontStyle: italic ? "italic" : "normal" }}>
+        {label}
+      </button>
     </div>
   );
 
+  const screens: Record<number, React.ReactNode> = {
+    0: (
+      <div>
+        <div style={{ textAlign: "center", margin: "20px 0 28px" }}>
+          <div style={{ fontSize: 28, fontStyle: "italic", marginBottom: 8 }}>You&apos;re invited</div>
+          <div style={{ fontSize: 22 }}>✉</div>
+          <div style={{ marginTop: 16, fontSize: 15, fontStyle: "italic" }}>RSVP</div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 48, marginTop: 14, fontSize: 18 }}>
+            <span>Y</span><span>N</span>
+          </div>
+        </div>
+        <Next to={1} />
+      </div>
+    ),
+    1: (
+      <div>
+        <p>Dear Close Friend,</p>
+        <p>I hope this letter finds you well.</p>
+        <p>There are birds outside my window and the sky is grey.</p>
+        <p>I miss you…</p>
+        <Next to={2} />
+      </div>
+    ),
+    2: (
+      <div>
+        <p>I want you to do something for me.</p>
+        <Next to={3} />
+      </div>
+    ),
+    3: (
+      <div>
+        <p style={{ fontFamily: "system-ui", fontSize: 14 }}>Open your Instagram app and go to your Archive.</p>
+        <p style={{ fontFamily: "system-ui", fontSize: 14 }}>Screenshot 8 photos that are meaningful to you.</p>
+        <p style={{ fontFamily: "system-ui", fontSize: 14 }}>Come back to this page when you&apos;re done.</p>
+        <Next to={4} label="I'm done" italic />
+      </div>
+    ),
+    4: (
+      <div>
+        <p style={{ fontFamily: "system-ui", fontSize: 14, fontStyle: "italic" }}>Add them here. Don&apos;t be shy.</p>
+        <input type="file" accept="image/jpeg,image/png" multiple onChange={pickFiles} style={{ fontSize: 13, fontFamily: "system-ui", display: "block", marginBottom: 4 }} />
+        {files.length > 0 && <p style={{ fontFamily: "system-ui", fontSize: 12, color: "#666", marginBottom: 12 }}>{files.length}/8 photos selected</p>}
+        <p style={{ fontFamily: "system-ui", fontSize: 14, margin: "10px 0 4px" }}>Write your letter:</p>
+        <textarea value={letter} onChange={e => setLetter(e.target.value)} rows={7} placeholder="Dear Close Friend…" style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #ccc", fontSize: 13, fontFamily: "Georgia, serif", resize: "none", boxSizing: "border-box", margin: "6px 0 14px", display: "block" }} />
+        <button onClick={generate} disabled={!files.length || loading} style={{ display: "block", margin: "0 auto 8px", padding: "8px 24px", borderRadius: 8, border: "1px solid #111", background: files.length && !loading ? "#111" : "#999", color: "#fff", fontSize: 14, cursor: files.length && !loading ? "pointer" : "not-allowed", fontFamily: "system-ui" }}>
+          {loading ? "Building your zine…" : "Download"}
+        </button>
+        {status && !loading && <p style={{ textAlign: "center", fontSize: 12, color: "#555", fontFamily: "system-ui" }}>{status}</p>}
+      </div>
+    ),
+    5: (
+      <div style={{ textAlign: "center", padding: "8px 0" }}>
+        <p>Print it.</p>
+        <p>Fold it.</p>
+        <div style={{ width: 120, height: 80, background: "#e8e0d5", borderRadius: 6, margin: "10px auto", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#888", fontFamily: "system-ui" }}>your zine</div>
+        <p>Mail it.</p>
+        <p style={{ marginTop: 16 }}>Sincerely,</p>
+        <p style={{ fontStyle: "italic" }}>Avatar Lilith</p>
+      </div>
+    ),
+  };
+
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "start center",
-        padding: "40px 20px",
-        fontFamily: "system-ui",
-        background: "#f6f6f6",
-      }}
-    >
-      <PhoneFrame>
-        {step === 1 ? (
-          // ---------------- Screen 1: Instructions ----------------
+    <main style={{ background: "#f6f6f6", minHeight: "100vh", display: "flex", justifyContent: "center", padding: "40px 16px", fontFamily: "Georgia, serif" }}>
+      <div style={{ width: 340, maxWidth: "96vw", background: "#fff", borderRadius: 32, border: "1px solid #d0d0d0", overflow: "hidden" }}>
+
+        {/* Top bar */}
+        <div style={{ display: "flex", alignItems: "center", padding: "12px 16px 10px", gap: 8, borderBottom: "1px solid #eee" }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#ccc", flexShrink: 0 }} />
           <div>
-            <ol style={{ paddingLeft: 18, margin: 0, lineHeight: 1.5, fontSize: 16 }}>
-              <li style={{ marginBottom: 10 }}>
-                Take <b>8 screenshots</b> from your Close Friend’s Instagram Story Archive from the
-                past month.
-              </li>
-              <li style={{ marginBottom: 10 }}>
-                Upload the screenshots. <span style={{ fontSize: 14 }}>(Nothing is stored.)</span>
-              </li>
-              <li style={{ marginBottom: 10 }}>Write your letter.</li>
-              <li style={{ marginBottom: 10 }}>Fold your zine.</li>
-              <li style={{ marginBottom: 10 }}>Seal it with a kiss.</li>
-              <li style={{ marginBottom: 10 }}>Mail it to your Close Friend(s).</li>
-              <li style={{ marginBottom: 0 }}>Send them this link so they can write you back.</li>
-            </ol>
-
-            <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 14, marginBottom: 6 }}>How to fold:</div>
-                <img
-                  src="/fold-guide.gif"
-                  alt="How to fold the zine"
-                  style={{ width: 100, borderRadius: 8, border: "1px solid #ddd" }}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginTop: 22, display: "flex", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => setStep(2)}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  fontSize: 14,
-                  cursor: "pointer",
-                  color: "#111",
-                }}
-              >
-                Next →
-              </button>
-            </div>
+            <div style={{ fontSize: 11, fontWeight: 700, fontFamily: "system-ui" }}>Close Friends Only</div>
+            <div style={{ fontSize: 10, color: "#888", fontFamily: "system-ui" }}>An Epistolary Exchange</div>
           </div>
-        ) : (
-          // ---------------- Screen 2: Maker ----------------
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
-              <button
-                onClick={() => setStep(1)}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  fontSize: 14,
-                  cursor: "pointer",
-                  color: "#111",
-                }}
-              >
-                ← Previous
-              </button>
-
-              <div style={{ fontSize: 12, opacity: 0.65 }}>{helper}</div>
-            </div>
-
-            <div style={{ display: "grid", gap: 14 }}>
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png"
-                  multiple
-                  onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-                />
-              </div>
-
-              <textarea
-                value={letter}
-                onChange={(e) => setLetter(e.target.value)}
-                placeholder="Write your letter…"
-                rows={8}
-                style={{
-                  width: "100%",
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #bbb",
-                  fontSize: 14,
-                  resize: "none",
-                }}
-              />
-
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <button
-                  onClick={generate}
-                  disabled={!files.length}
-                  style={{
-                    padding: "10px 18px",
-                    borderRadius: 10,
-                    border: "1px solid #111",
-                    background: files.length ? "#111" : "#888",
-                    color: "#fff",
-                    cursor: files.length ? "pointer" : "not-allowed",
-                  }}
-                >
-                  Download
-                </button>
-              </div>
-
-              {status && <div style={{ textAlign: "center", fontSize: 12 }}>{status}</div>}
-            </div>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ background: "#00e676", borderRadius: 999, padding: "2px 8px", fontSize: 11, fontWeight: 700, fontFamily: "system-ui" }}>★ ▾</div>
+            <span style={{ fontSize: 18, color: "#555" }}>×</span>
           </div>
-        )}
-      </PhoneFrame>
+        </div>
+
+        {/* Content */}
+        <div style={{ padding: 20, minHeight: 260 }}>
+          {screens[step]}
+        </div>
+
+        {/* Bottom bar */}
+        <div style={{ borderTop: "1px solid #eee", padding: "10px 0", display: "flex", justifyContent: "space-around", fontFamily: "system-ui", fontSize: 10, color: "#333" }}>
+          {[["⤴", "Share"], ["●", "Email Me"], ["…", "More"]].map(([icon, label]) => (
+            <div key={label} style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 16, marginBottom: 2 }}>{icon}</div>
+              {label}
+            </div>
+          ))}
+        </div>
+
+      </div>
     </main>
   );
 }
