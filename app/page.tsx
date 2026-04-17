@@ -13,7 +13,7 @@ async function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promis
   return new Promise((res) => canvas.toBlob((b) => res(b!), "image/jpeg", quality));
 }
 
-const STORY_STEPS = [2, 3, 4, 5, 6, 7, 8];
+const STORY_STEPS = [3, 4, 5, 6, 7, 8, 9];
 
 function Shell({ step, onLeft, onRight, children }: {
   step: number;
@@ -77,6 +77,8 @@ export default function Home() {
   const [files, setFiles] = useState<File[]>([]);
   const [letter, setLetter] = useState("");
   const [status, setStatus] = useState("");
+const [uploadError, setUploadError] = useState(false);
+const [uploadAttempts, setUploadAttempts] = useState(0);
 
   const helper = useMemo(() => {
     if (!files.length) return "Choose 8 screenshots.";
@@ -92,12 +94,17 @@ export default function Home() {
     if (i > 0) setStep(STORY_STEPS[i - 1]);
   }
 
-  function onRight() {
-    const i = STORY_STEPS.indexOf(step);
-    // on upload screen, only advance if files selected
-    if (step === 5 && !files.length) return;
-    if (i < STORY_STEPS.length - 1) setStep(STORY_STEPS[i + 1]);
-  }
+
+function onRight() {
+  const i = STORY_STEPS.indexOf(step);
+if (step === 6 && files.length < 8) {
+  setUploadError(true);
+  setUploadAttempts(a => a + 1);
+  return;
+}
+  setUploadError(false);
+  if (i < STORY_STEPS.length - 1) setStep(STORY_STEPS[i + 1]);
+}
 
   async function generate() {
     if (!files.length) return;
@@ -123,29 +130,45 @@ export default function Home() {
     a.remove();
     URL.revokeObjectURL(url);
     setStatus("Downloaded.");
-    setStep(8);
+    setStep(9);
   }
 
   const p: React.CSSProperties = { fontSize: 17, lineHeight: 1.9, marginBottom: 14, fontWeight: 400 };
 
   return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: "20px", background: "#f0f0f0" }}>
+    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: "20px", fontFamily: "Georgia, serif", background: "#f0f0f0" }}>
       <Shell step={step} onLeft={onLeft} onRight={onRight}>
 
-        {/* 0: Invited */}
+        {/* 0: Tools required */}
         {step === 0 && (
-  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%" }}>
-    <img src="/youre-invited.jpg" alt="You're invited" style={{ width: "100%", height: "auto", marginBottom: 20 }} />
-    <div style={{ display: "flex", gap: 32, marginTop: 8 }}>
-      <button onClick={() => setStep(1)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
-        <img src="/y.jpg" alt="Yes" style={{ height: 48, width: "auto" }} />
-      </button>
-      <button onClick={() => setStep(-1)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
-        <img src="/n.jpg" alt="No" style={{ height: 48, width: "auto" }} />
-      </button>
-    </div>
-  </div>
-)}
+          <div style={{ fontFamily: "system-ui", fontSize: 14, lineHeight: 1.9, paddingTop: 24 }}>
+            <p style={{ marginBottom: 12, fontSize: 14 }}>Tools required:</p>
+            <ol style={{ paddingLeft: 20, margin: 0 }}>
+              <li style={{ marginBottom: 8 }}>A printer</li>
+              <li style={{ marginBottom: 8 }}>Instagram</li>
+              <li style={{ marginBottom: 8 }}>An envelope</li>
+              <li style={{ marginBottom: 8 }}>A stamp</li>
+            </ol>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
+              <button onClick={() => setStep(1)} style={{ border: "none", background: "transparent", fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>Next →</button>
+            </div>
+          </div>
+        )}
+
+        {/* 1: You're invited */}
+        {step === 1 && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%" }}>
+            <img src="/youre-invited.jpg" alt="You're invited" style={{ width: "100%", height: "auto", marginBottom: 20 }} />
+            <div style={{ display: "flex", gap: 48, alignItems: "center" }}>
+              <button onClick={() => setStep(2)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
+                <img src="/y.jpg" alt="Y" style={{ height: 44, width: "auto" }} />
+              </button>
+              <button onClick={() => setStep(-1)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
+                <img src="/n.jpg" alt="N" style={{ height: 44, width: "auto" }} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* -1: See you later */}
         {step === -1 && (
@@ -157,18 +180,17 @@ export default function Home() {
           </div>
         )}
 
-        {/* 1: Profile bubble */}
-        {step === 1 && (
+        {/* 2: Profile bubble */}
+        {step === 2 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%" }}>
-            <button onClick={() => setStep(2)} style={{ border: "none", background: "transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+            <button onClick={() => setStep(3)} style={{ border: "none", background: "transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
               <div style={{ width: 88, height: 88, borderRadius: "50%", background: "#ccc", outline: "3px solid #00e676", outlineOffset: 3 }} />
-              <div style={{ fontSize: 13, fontFamily: "system-ui", color: "#111" }}>Avatar Lilith</div>
             </button>
           </div>
         )}
 
-        {/* 2: Letter */}
-        {step === 2 && (
+        {/* 3: Letter */}
+        {step === 3 && (
           <div style={{ paddingTop: 24 }}>
             <p style={p}>Dear Close Friend,</p>
             <p style={p}>I hope this letter finds you well.</p>
@@ -177,40 +199,43 @@ export default function Home() {
           </div>
         )}
 
-        {/* 3: Ask */}
-        {step === 3 && (
+        {/* 4: Ask */}
+        {step === 4 && (
           <div style={{ display: "flex", alignItems: "center", height: "100%" }}>
             <p style={{ ...p, marginBottom: 0 }}>I want you to do something for me.</p>
           </div>
         )}
 
-        {/* 4: Instagram task */}
-        {step === 4 && (
+        {/* 5: Instagram task */}
+        {step === 5 && (
           <div style={{ paddingTop: 24, fontFamily: "system-ui", fontSize: 15, lineHeight: 1.7 }}>
             <p style={{ marginBottom: 16 }}>Open your Instagram app and go to your Archive.</p>
             <p style={{ marginBottom: 16 }}>Screenshot 8 photos that are meaningful to you.</p>
             <p style={{ marginBottom: 32 }}>Come back to this page when you're done.</p>
             <div style={{ position: "relative", zIndex: 20 }}>
-              <button onClick={() => setStep(5)} style={{ border: "none", background: "transparent", fontSize: 15, cursor: "pointer", fontStyle: "italic", fontFamily: "inherit" }}>
+              <button onClick={() => setStep(6)} style={{ border: "none", background: "transparent", fontSize: 15, cursor: "pointer", fontStyle: "italic", fontFamily: "inherit" }}>
                 I'm done
               </button>
             </div>
           </div>
         )}
 
-        {/* 5: Upload photos — tap right to advance once files selected */}
-        {step === 5 && (
+        {/* 6: Upload photos */}
+        {step === 6 && (
           <div style={{ paddingTop: 24, fontFamily: "system-ui", fontSize: 15 }}>
             <p style={{ fontStyle: "italic", marginBottom: 20, fontFamily: "inherit", fontSize: 16 }}>Add them here. Don't be shy.</p>
             <div style={{ position: "relative", zIndex: 20, marginBottom: 12 }}>
               <input type="file" accept="image/jpeg,image/png" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
             </div>
-            <p style={{ fontSize: 12, opacity: 0.5, marginTop: 8 }}>{helper}</p>
-          </div>
+<p style={{ fontSize: 12, opacity: 0.5, marginTop: 8 }}>{helper}</p>
+{uploadError && (
+  <p style={{ fontSize: 12, marginTop: 8, fontFamily: "inherit" }}>
+{["give me 8 pls :)", "hey!", "I said 8 pls", "where are you going?", "somebody doesn't know how to listen to directions", "stubborn, aren't you…"][(uploadAttempts - 1) % 6]}  </p>
+)}          </div>
         )}
 
-        {/* 6: Write letter — tap right to advance */}
-        {step === 6 && (
+        {/* 7: Write letter */}
+        {step === 7 && (
           <div style={{ paddingTop: 16, position: "relative", zIndex: 20, width: "100%" }}>
             <p style={{ fontFamily: "system-ui", fontSize: 14, marginBottom: 10 }}>Write your letter:</p>
             <textarea
@@ -223,8 +248,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* 7: Download */}
-        {step === 7 && (
+        {/* 8: Download */}
+        {step === 8 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", position: "relative", zIndex: 20 }}>
             <button onClick={generate} disabled={!files.length} style={{ padding: "10px 28px", borderRadius: 3, border: "1px solid #111", background: files.length ? "#111" : "#999", color: "#fff", fontSize: 15, cursor: files.length ? "pointer" : "not-allowed", fontFamily: "system-ui" }}>
               Download
@@ -233,8 +258,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* 8: Done */}
-        {step === 8 && (
+        {/* 9: Print/Fold/Mail */}
+        {step === 9 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center", lineHeight: 2.2 }}>
             <p style={{ fontSize: 16 }}>Print it.</p>
             <p style={{ fontSize: 16 }}>Fold it.</p>
