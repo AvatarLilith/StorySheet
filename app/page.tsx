@@ -216,7 +216,7 @@ export default function Home() {
         {step === -1 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center" }}>
             <div style={{ fontSize: 22, fontStyle: "italic", marginBottom: 36 }}>see you later</div>
-            <button onClick={reset} style={{ border: "none", background: "#fff", fontSize: 14, cursor: "pointer", textDecoration: "underline", fontFamily: FONT }}>
+            <button onClick={reset} style={{ border: "none", background: "transparent", fontSize: 14, cursor: "pointer", textDecoration: "underline", fontFamily: FONT }}>
               begin again
             </button>
           </div>
