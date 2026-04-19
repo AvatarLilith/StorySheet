@@ -47,18 +47,38 @@ function Shell({ step, onLeft, onRight, onClose, children }: {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: 390 }}>
-
-      {/* Phone frame */}
-      <div style={{
-        width: "100%",
-        aspectRatio: "390 / 690",
-        border: showUI ? "1px solid #ccc" : "none",
-        borderRadius: showUI ? 3 : 0,
-        background: showUI ? "#fff" : "transparent",
-        overflow: "hidden", display: "flex", flexDirection: "column",
-        position: "relative", fontFamily: FONT,
-      }}>
+<div
+  style={{
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 390,
+    height: "100dvh",
+    boxSizing: "border-box",
+    gap: 12,
+    padding: "12px",
+    background: "#fff",
+  }}
+>      {/* Phone frame */}
+      <div
+  style={{
+    width: "100%",
+    maxWidth: 390,
+    aspectRatio: "390 / 690",
+    maxHeight: showUI ? "calc(100dvh - 88px)" : "690px",
+    border: showUI ? "1px solid #999" : "none",
+    borderRadius: showUI ? 8 : 0,
+    background: "#fff",
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    position: "relative",
+    fontFamily: FONT,
+    color: "#111",
+    boxShadow: showUI ? "0 1px 6px rgba(0,0,0,0.06)" : "none",
+  }}
+      >
         {inStory && (
           <div style={{ display: "flex", gap: 3, padding: "10px 10px 0", flexShrink: 0 }}>
             {STORY_STEPS.map((_, i) => (
@@ -76,7 +96,9 @@ function Shell({ step, onLeft, onRight, onClose, children }: {
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
               <div style={{ position: "relative" }}>
-                <div onClick={() => setShowPopup(p => !p)} style={{ padding: "5px 12px", borderRadius: 999, background: "#00e676", fontSize: 14, fontWeight: 700, fontFamily: FONT, display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}>
+                <div
+                  onClick={() => setShowPopup(p => !p)}
+                  style={{ padding: "5px 12px", borderRadius: 999, background: "#00e676", fontSize: 14, fontWeight: 700, fontFamily: FONT, display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}>
                   ✉ <span style={{ fontSize: 11 }}>▾</span>
                 </div>
                 {showPopup && (
@@ -85,13 +107,12 @@ function Shell({ step, onLeft, onRight, onClose, children }: {
                   </div>
                 )}
               </div>
-              <div onClick={onClose} style={{ fontSize: 28, fontWeight: 300, color: "#111", lineHeight: 1, cursor: "pointer" }}>×</div>
+              <div onClick={onClose} style={{ fontSize: 28, fontWeight: 300, color: "#111", fontFamily: FONT, lineHeight: 1, cursor: "pointer" }}>×</div>
             </div>
           </div>
         )}
 
-        <div style={{ flex: 1, overflowY: "auto", position: "relative", padding: showUI ? "12px 20px" : "0" }}>
-          {children}
+<div style={{ flex: 1, overflow: "hidden", position: "relative", padding: showUI ? "12px 20px" : "0" }}>          {children}
           {inStory && (
             <>
               <div onClick={onLeft} style={{ position: "absolute", left: 0, top: 0, width: "35%", height: "100%", cursor: "pointer", zIndex: 10 }} />
@@ -101,9 +122,9 @@ function Shell({ step, onLeft, onRight, onClose, children }: {
         </div>
       </div>
 
-      {/* Bottom bar — outside the frame, always visible */}
+      {/* Bottom bar — outside the frame */}
       {showUI && (
-        <div style={{ display: "flex", justifyContent: "center", gap: 40, padding: "14px 0", fontSize: 12, fontFamily: FONT, color: "#222", width: "100%" }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: 40, padding: "16px 0 0", fontSize: 12, fontFamily: FONT, color: "#222", width: "100%" }}>
           <div style={{ textAlign: "center", cursor: "pointer" }} onClick={handleShare}>
             <div style={{ fontSize: 24, marginBottom: 4 }}>⤴</div>
             Share
@@ -186,8 +207,17 @@ export default function Home() {
   const p: React.CSSProperties = { fontSize: 17, lineHeight: 1.9, marginBottom: 14, fontWeight: 400, fontFamily: FONT };
 
   return (
-    <main style={{ minHeight: "100dvh", display: "grid", placeItems: "center", padding: "20px", fontFamily: FONT, background: "#fff" }}>
-      <Shell step={step} onLeft={onLeft} onRight={onRight} onClose={() => setStep(2)}>
+<main
+  style={{
+    minHeight: "100dvh",
+    display: "grid",
+    placeItems: "center",
+    padding: "0",
+    fontFamily: FONT,
+    background: "#fff",
+    overflow: "hidden",
+  }}
+>      <Shell step={step} onLeft={onLeft} onRight={onRight} onClose={() => setStep(2)}>
 
         {step === 0 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%" }}>
@@ -213,7 +243,7 @@ export default function Home() {
         )}
 
         {step === 1 && (
-          <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "24px" }}>
+          <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "24px" }}>
             <div style={{ marginBottom: 8 }}>
               <img src="/logo.jpg" alt="Close Friends Only" style={{ height: 60, width: "auto" }} />
             </div>
